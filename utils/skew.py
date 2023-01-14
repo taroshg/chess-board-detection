@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import torch
 from torchvision import transforms
 from torchvision.io import read_image
-from model import Bd_Model # Bd is short for board detection
+
+from models import Bd_Model # Bd is short for board detection
 
 import json
 

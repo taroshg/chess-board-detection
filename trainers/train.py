@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from model import Bd_Model # Bd is short for board detection
-from data import Bd_Data # Bd (Board Detection)
+from models import Bd_Model # Bd is short for board detection
+from dataloader.data import Bd_Data # Bd (Board Detection)
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import math
