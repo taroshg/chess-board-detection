@@ -1,0 +1,2 @@
+Labeling Process:
+    - Board Labelers need to ensure that order of points should be (a8, h8, h1, a1)

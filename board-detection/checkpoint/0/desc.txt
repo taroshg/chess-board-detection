@@ -1,0 +1,1 @@
+This checkpoint was run on the RTX 3060. at 1 epochs
