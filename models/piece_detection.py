@@ -1,10 +1,11 @@
-import torch
-import torchvision
-import torch.nn as nn
 from torchvision.models.detection import fasterrcnn_resnet50_fpn as fasterrcnn
-from torchvision.io import read_image
 from torchvision.utils import draw_bounding_boxes
+from torchvision.io import read_image
 import matplotlib.pyplot as plt
+import torch.nn as nn
+import torchvision
+import torch
+
 
 model = fasterrcnn(pretrained=True)
 model.eval()
