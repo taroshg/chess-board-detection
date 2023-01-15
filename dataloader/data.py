@@ -7,7 +7,7 @@ import json
 
 # original size: 320 x 320
 device = "cuda" if torch.cuda.is_available() else "cpu"
-class Bd_Data(Dataset):
+class BoardDetectorDataset(Dataset):
     def __init__(self, json_file="data/data.json", size=(320, 320)) -> None:
         self.data = json.load(open(json_file))
         self.s = size
@@ -27,3 +27,6 @@ class Bd_Data(Dataset):
         label = torch.tensor([coords[0]['x'] / h, coords[0]['y'] / w, coords[1]['x'] / h, coords[1]['y'] / w,
                              coords[2]['x'] / h, coords[2]['y'] / w, coords[3]['x']/ h, coords[3]['y'] / w]).to(device);
         return img, label
+
+
+# TODO: Piece Detector Dataset

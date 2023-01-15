@@ -1,7 +1,7 @@
 from torchvision.models import densenet201
 import torch.nn as nn
 
-class Bd_Model(nn.Module):
+class BoardDetector(nn.Module):
 
     def __init__(self):
         super().__init__()

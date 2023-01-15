@@ -1,44 +1,54 @@
 import torch
 import torch.nn as nn
-from models import Bd_Model # Bd is short for board detection
-from dataloader.data import Bd_Data # Bd (Board Detection)
+from models import BoardDetector # Bd is short for board detection
+from dataloader import BoardDetectorDataset # Bd (Board Detection)
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 import math
 import matplotlib.pyplot as plt
 
-def main():
-    CURRENT_TRAINING_VERSION = 5
-    SAVE_PATH = f'./checkpoint/{CURRENT_TRAINING_VERSION}/model'
-    LOAD_PATH = f'./checkpoint/{CURRENT_TRAINING_VERSION - 1}/model'
-    LOAD_MODEL = False
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    bd_model = Bd_Model().to(device)
-    if LOAD_MODEL : 
-        bd_model.load_state_dict(torch.load(LOAD_PATH)) 
+def train_board_detector(training_version, load_version=None, 
+                         batch_size=64, learning_rate=3e-4, epochs=30):
+
+    """
+    This function trains the Board Detector
+    Args: 
+        (int) training_version: saves in checkpoints/board_detector/{training_version}
+        (int) load_version: if not None then, pre-loads from checkpoints/board_detector/{load_version}
+        (int) batch_size: size of each batch trained at once
+        (float) learning_rate: lr of the model
+        (int) epochs: # of iterations through dataset
+
+    Returns:
+        None, displays losses at the end
+    """
+
+    model_save_path = f"./checkpoint/{training_version}/model"
+    loss_save_path = f"./checkpoint/{training_version}/losses.jpg"
+
+    board_detector = BoardDetector().to(device)
+    if load_version != None:
+        board_detector.load_state_dict(torch.load(f"./checkpoint/{load_version}/model")) 
         print('loaded model!')
 
-    # https://twitter.com/karpathy/status/801621764144971776?lang=en (The Andrej Karpathy constant = 3e-4)
-    LEARNING_RATE = 3e-4
-    optim = torch.optim.Adam(bd_model.parameters(), lr=LEARNING_RATE) 
-    dataset = Bd_Data()
+    optim = torch.optim.Adam(board_detector.parameters(), lr=learning_rate) 
+    board_detector_dataset = BoardDetectorDataset()
 
-    BATCH_SIZE = 64
-    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
-
-    EPOCHS = 30
+    dataloader = DataLoader(board_detector_dataset, batch_size=batch_size, shuffle=True)
+    
     criterion = nn.MSELoss()
 
     losses = []
     lowest_loss = math.inf
-    for epoch in tqdm(range(EPOCHS)):
+    for epoch in tqdm(range(epochs)):
         for data in dataloader:
             x, y = data
 
             optim.zero_grad()
 
-            out = bd_model(x)
+            out = board_detector(x)
             loss = criterion(out, y)
             loss.backward()
             optim.step()
@@ -46,11 +56,11 @@ def main():
             losses += [loss.item()]
             if(loss.item() < lowest_loss):
                 lowest_loss = loss.item()
-                torch.save(bd_model.state_dict(), SAVE_PATH)
+                torch.save(board_detector.state_dict(), model_save_path)
 
     plt.plot(losses)
     plt.show()
+    plt.savefig(loss_save_path)
 
 
-if __name__ == '__main__':
-    main()
+# TODO: write code to train piece detector
