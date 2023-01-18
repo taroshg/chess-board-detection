@@ -1,80 +1,63 @@
-from asyncore import read
-import torch
-import torch.nn as nn
-from models import BoardDetector # Bd is short for board detection
-from dataloader import BoardDetectorDataset # Bd (Board Detection)
+from torchvision.utils import save_image
 from torch.utils.data import DataLoader
-import matplotlib.pyplot as plt
-from torchvision import transforms
 from torchvision.io import read_image
+from torchvision import transforms
+import torch
+import glob
+import json
+
+from models import PieceDetector
+from models import BoardDetector
+from dataloader import BoardDetectorDataset
+from dataloader import PieceDetectorDataset
 from utils import download_data
 from utils import warp
 
-import numpy as np
+
 
 SAVE = False # Toggle this to avoid override
 device = "cuda" if torch.cuda.is_available() else "cpu"
-
 def main():
-    print("running...")
-    generate_board_focused_images()
+    # piece_detector = PieceDetector().to(device)
+    # B = 2 # batch size
+    # n_classes = 32
+    # images, boxes = torch.rand(B, 3, 320, 320, device=device), torch.rand(B, 10, 4, device=device) # box: (N, n_boxes, coords) Note: coords have (x1, y1, x2, y2)
+    # boxes[:, :, 2:4] = boxes[:, :, 0:2] + boxes[:, :, 2:4]
+    # labels = torch.randint(n_classes, (B, 11), device=device) 
+    # targets = []
+    # for i in range(B):
+    #     d = {}
+    #     d['boxes'] = boxes[i]
+    #     d['labels'] = labels[i]
+    #     targets.append(d)
+    # out = piece_detector(images, targets)
+    # print(out)
 
-# def run_model():
-#     device = "cuda" if torch.cuda.is_available() else "cpu"
+    dataloader = DataLoader(PieceDetectorDataset(), batch_size=2, shuffle=True)
+    img, box, label = next(iter(dataloader))
+    print(box.shape)
+    print(label.shape)
 
-#     dataset = Bd_Data()
-#     dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
 
-#     model = Bd_Model().to(device)
-#     VERSION = 3
-#     LOAD_PATH = f'./checkpoint/{VERSION}/model'
-#     model.load_state_dict(torch.load(LOAD_PATH))
-#     model.eval()
-
-#     for x, y in dataloader:
-#         out = model(x)
-
-#         pred_coords = (out[0] * 320).tolist()
-#         real_coords = (y[0] * 320).tolist()
-
-#         print(pred_coords)
-#         print(real_coords)
-        
-#         plt.imshow(x[0].cpu().permute(1, 2, 0))
-#         plt.plot(pred_coords[::2]+[pred_coords[0]], pred_coords[1::2]+[pred_coords[1]], '.r-')
-#         plt.plot(real_coords[::2]+[real_coords[0]], real_coords[1::2]+[real_coords[1]], '.g-', alpha=0.5)
-#         if SAVE:
-#             plt.savefig(f'./checkpoint/{VERSION}/out.png')
-#         plt.show()
-#         quit()
-
-from torchvision.utils import save_image
-
-def generate_board_focused_images():
-    VERSION = 5
-    LOAD_PATH = f'./checkpoint/{VERSION}/model'
-    board_detector = BoardDetector().to(device)
-    board_detector.load_state_dict(torch.load(LOAD_PATH))
-    board_detector.eval()
+def generate_board_warped_images(data_path="dataloader/data", from_model=False, model_version=5):
     tr = transforms.Resize((320, 320))
-
-    i = 0
-
-    IMG_PATH = f"dataloader/data/{i}.jpg"
-    inp = tr(read_image(IMG_PATH) / 255.0).unsqueeze(0).to(device) # Resizes, normaizes, adds dim at 0, and casts to GPU.
-    out = (board_detector(inp)[0] * 320).tolist()   
-    coords = torch.Tensor([[[out[0],out[1]], [out[2],out[3]], [out[4],out[5]], [out[6], out[7]]]]).to(device)
-    # skew(img_path=f"./data/{i}.jpg", save_path=f"skewed_out/{i}.jpg", coords=coords, rotate=0)
-    out = warp(img=inp, coords=coords)
-    save_image(out[0], f"dataloader/data/skewed_out/{i}_test.jpg")
-    
-
-    # for i in range(11):
-    #     IMG_PATH = f"./data/{i}.jpg"
-    #     inp = tr(read_image(IMG_PATH) / 255.0).unsqueeze(0).to(device) # Resizes, normaizes, adds dim at 0, and casts to GPU.
-    #     out = (board_detector(inp)[0] * 320).tolist()   
-    #     coords = np.float32([[out[0],out[1]], [out[2],out[3]], [out[4],out[5]], [out[6],out[7]]])
-    #     skew(img_path=f"./data/{i}.jpg", save_path=f"skewed_out/{i}.jpg", coords=coords, rotate=0)
+    for i in range(len(glob.glob1(data_path, '*.jpg'))):
+        img_path = data_path + f"/{i}.jpg"
+        if not from_model:
+            data = json.load(open(data_path + '/data.json'))
+            coords = data[i]["Label"]["objects"][0]["polygon"]
+            coords = torch.tensor([[list(coords[0].values()), list(coords[1].values()), list(coords[2].values()),
+                                        list(coords[3].values())]]).to(device);
+            out = warp(img=tr(read_image(img_path) / 255.0).unsqueeze(0).to(device), coords=coords)
+            save_image(out[0], data_path + f"/warped_target/{i}_target.jpg")
+        else:
+            load_path = f'checkpoint/{model_version}/model'
+            board_detector = BoardDetector().to(device)
+            board_detector.load_state_dict(torch.load(load_path))
+            board_detector.eval()
+            inp = tr(read_image(img_path) / 255.0).unsqueeze(0).to(device) # Resizes, normaizes, adds dim at 0, and casts to GPU.
+            out = (board_detector(inp)[0] * 320).tolist() 
+            save_image(out[0], data_path + f"/warped_pred/{i}_pred.jpg")
 
 if __name__ == '__main__':
     main()
