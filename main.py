@@ -1,15 +1,20 @@
+# installed imports
 from torchvision.utils import save_image
 from torch.utils.data import DataLoader
 from torchvision.io import read_image
 from torchvision import transforms
 import torch
+
+# default imports
 import glob
 import json
 
-from models import PieceDetector
-from models import BoardDetector
+# local imports
 from dataloader import BoardDetectorDataset
 from dataloader import PieceDetectorDataset
+from utils import generate_warped_board_images
+from models import PieceDetector
+from models import BoardDetector
 from utils import download_data
 from utils import warp
 
@@ -32,32 +37,10 @@ def main():
     #     targets.append(d)
     # out = piece_detector(images, targets)
     # print(out)
-
     dataloader = DataLoader(PieceDetectorDataset(), batch_size=2, shuffle=True)
     img, box, label = next(iter(dataloader))
     print(box.shape)
     print(label.shape)
-
-
-def generate_board_warped_images(data_path="dataloader/data", from_model=False, model_version=5):
-    tr = transforms.Resize((320, 320))
-    for i in range(len(glob.glob1(data_path, '*.jpg'))):
-        img_path = data_path + f"/{i}.jpg"
-        if not from_model:
-            data = json.load(open(data_path + '/data.json'))
-            coords = data[i]["Label"]["objects"][0]["polygon"]
-            coords = torch.tensor([[list(coords[0].values()), list(coords[1].values()), list(coords[2].values()),
-                                        list(coords[3].values())]]).to(device);
-            out = warp(img=tr(read_image(img_path) / 255.0).unsqueeze(0).to(device), coords=coords)
-            save_image(out[0], data_path + f"/warped_target/{i}_target.jpg")
-        else:
-            load_path = f'checkpoint/{model_version}/model'
-            board_detector = BoardDetector().to(device)
-            board_detector.load_state_dict(torch.load(load_path))
-            board_detector.eval()
-            inp = tr(read_image(img_path) / 255.0).unsqueeze(0).to(device) # Resizes, normaizes, adds dim at 0, and casts to GPU.
-            out = (board_detector(inp)[0] * 320).tolist() 
-            save_image(out[0], data_path + f"/warped_pred/{i}_pred.jpg")
 
 if __name__ == '__main__':
     main()

@@ -1,15 +1,24 @@
+# installed imports
 from torchvision.io import read_image
 from torch.utils.data import Dataset
 from torchvision import transforms
 import torch
 
+# default imports
 import json
 
 # original size: 320 x 320
 device = "cuda" if torch.cuda.is_available() else "cpu"
 class BoardDetectorDataset(Dataset):
-    def __init__(self, json_file="dataloader/data/data.json", size=(320, 320)) -> None:
+    """
+    Args:
+        (str) json_file: json file downloaded from labelbox "Chess Board Detection" project
+        (str) data_folder: folder with all normal chess board images
+        (tuple) size: resize shape of the images
+    """
+    def __init__(self, json_file, data_folder, size=(320, 320)) -> None:
         super().__init__()
+        self.data_folder = data_folder
         self.data = json.load(open(json_file))
         self.s = size
         self.tr = transforms.Resize(size)
@@ -20,7 +29,7 @@ class BoardDetectorDataset(Dataset):
 
     def __getitem__(self, i):
         coords = self.data[i]["Label"]["objects"][0]["polygon"]
-        img = self.tr(read_image(f'dataloader/data/{i}.jpg') / 255.0).to(device) # applies transfromations to img
+        img = self.tr(read_image(self.data_folder + f'/{i}.jpg') / 255.0).to(device) # applies transfromations to img
         h = self.s[0]
         w = self.s[1]
         # gets the coords and normalizes it to 0 - 1.
@@ -29,8 +38,15 @@ class BoardDetectorDataset(Dataset):
         return img, label
 
 class PieceDetectorDataset(Dataset):
-    def __init__(self, json_file="dataloader/piece_detector_data/data.json", size=(320, 320)):
+    """
+    Args:
+        (str) json_file: json file downloaded from labelbox "Chess Piece Detection" project
+        (str) data_folder: folder with all warped chess board images
+        (tuple) size: resize shape of the images
+    """
+    def __init__(self, json_file, data_folder, size=(320, 320)):
         super().__init__()
+        self.data_folder = data_folder
         self.data = json.load(open(json_file))
         self.h = size[0]
         self.w = size[1]
@@ -44,7 +60,7 @@ class PieceDetectorDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, i):
-        img = self.tr(read_image(f'dataloader/piece_detector_data/{i}.jpg') / 255.0).to(device) # applies transfromations to img
+        img = self.tr(read_image(self.data_folder + f'/{i}.jpg') / 255.0).to(device) # applies transfromations to img
 
         boxes = torch.zeros(self.max_objects, 4, device=device)
         labels = torch.zeros(self.max_objects, device=device)

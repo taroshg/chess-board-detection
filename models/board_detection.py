@@ -1,8 +1,11 @@
+# installed imports
 from torchvision.models import densenet201
 import torch.nn as nn
 
 class BoardDetector(nn.Module):
-
+    """
+    Simple pretrained densenet201, with classifer output of (1, 8)
+    """
     def __init__(self):
         super().__init__()
 
