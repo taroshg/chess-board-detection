@@ -1,8 +1,9 @@
 # installed imports
-from torchvision.utils import save_image
+from torchvision.utils import save_image, draw_bounding_boxes
 from torch.utils.data import DataLoader
 from torchvision.io import read_image
 from torchvision import transforms
+import matplotlib.pyplot as plt
 import torch
 
 # default imports
@@ -17,30 +18,35 @@ from models import PieceDetector
 from models import BoardDetector
 from utils import download_data
 from utils import warp
-
-
+from trainers import train_piece_detector
 
 SAVE = False # Toggle this to avoid override
 device = "cuda" if torch.cuda.is_available() else "cpu"
 def main():
-    # piece_detector = PieceDetector().to(device)
-    # B = 2 # batch size
-    # n_classes = 32
-    # images, boxes = torch.rand(B, 3, 320, 320, device=device), torch.rand(B, 10, 4, device=device) # box: (N, n_boxes, coords) Note: coords have (x1, y1, x2, y2)
-    # boxes[:, :, 2:4] = boxes[:, :, 0:2] + boxes[:, :, 2:4]
-    # labels = torch.randint(n_classes, (B, 11), device=device) 
-    # targets = []
-    # for i in range(B):
-    #     d = {}
-    #     d['boxes'] = boxes[i]
-    #     d['labels'] = labels[i]
-    #     targets.append(d)
-    # out = piece_detector(images, targets)
-    # print(out)
-    dataloader = DataLoader(PieceDetectorDataset(), batch_size=2, shuffle=True)
-    img, box, label = next(iter(dataloader))
-    print(box.shape)
-    print(label.shape)
+    # epochs = 10
+    # batch_size = 2
+    # lr = 3e-4
+    # train_piece_detector(batch_size=batch_size,
+    #                      epochs=epochs,
+    #                      learning_rate=lr,
+    #                      weights_save_folder='./models/checkpoints/piece_detector/0')
+    test_piece_detector(img_path='dataloader/data/warped_target/0_target.jpg',
+                        weights_path='models/checkpoints/piece_detector/0/weight')
+
+
+def test_piece_detector(img_path, weights_path):
+    piece_detector = PieceDetector().to(device)
+    piece_detector.load_state_dict(torch.load(weights_path))
+    piece_detector.eval()
+
+    raw_img = read_image(img_path)
+    img = raw_img.unsqueeze(0).to(device) / 255.0
+    boxes, labels, scores = piece_detector(img)[0].values()
+
+    out = draw_bounding_boxes(raw_img, boxes * 320, width=3)
+    plt.imshow(out.permute(1, 2, 0))    
+    plt.show()
+
 
 if __name__ == '__main__':
     main()

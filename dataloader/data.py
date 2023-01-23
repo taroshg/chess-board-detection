@@ -2,13 +2,13 @@
 from torchvision.io import read_image
 from torch.utils.data import Dataset
 from torchvision import transforms
+from torchvision.ops import box_convert
 import torch
 
 # default imports
 import json
 
 # original size: 320 x 320
-device = "cuda" if torch.cuda.is_available() else "cpu"
 class BoardDetectorDataset(Dataset):
     """
     Args:
@@ -18,6 +18,8 @@ class BoardDetectorDataset(Dataset):
     """
     def __init__(self, json_file, data_folder, size=(320, 320)) -> None:
         super().__init__()
+        assert(json_file != None), "json_file not provided for board detector dataset"
+        assert(data_folder != None), "data_folder not provided for board detctor dataset"
         self.data_folder = data_folder
         self.data = json.load(open(json_file))
         self.s = size
@@ -29,12 +31,12 @@ class BoardDetectorDataset(Dataset):
 
     def __getitem__(self, i):
         coords = self.data[i]["Label"]["objects"][0]["polygon"]
-        img = self.tr(read_image(self.data_folder + f'/{i}.jpg') / 255.0).to(device) # applies transfromations to img
+        img = self.tr(read_image(self.data_folder + f'/{i}.jpg') / 255.0) # applies transfromations to img
         h = self.s[0]
         w = self.s[1]
         # gets the coords and normalizes it to 0 - 1.
         label = torch.tensor([coords[0]['x'] / h, coords[0]['y'] / w, coords[1]['x'] / h, coords[1]['y'] / w,
-                             coords[2]['x'] / h, coords[2]['y'] / w, coords[3]['x']/ h, coords[3]['y'] / w]).to(device);
+                             coords[2]['x'] / h, coords[2]['y'] / w, coords[3]['x']/ h, coords[3]['y'] / w]);
         return img, label
 
 class PieceDetectorDataset(Dataset):
@@ -46,12 +48,13 @@ class PieceDetectorDataset(Dataset):
     """
     def __init__(self, json_file, data_folder, size=(320, 320)):
         super().__init__()
+        assert(json_file != None), "json_file not provided for piece detector dataset"
+        assert(data_folder != None), "data_folder not provided for piece detctor dataset"
         self.data_folder = data_folder
         self.data = json.load(open(json_file))
         self.h = size[0]
         self.w = size[1]
         self.tr = transforms.Resize(size)
-        self.max_objects = 32 # total of 32 pieces at anygiven position
         self.classification = ['whiteking', 'whitequeen', 'whiterook', 'whitebishop', 'whiteknight', 'whitepawn',
                                'blackking', 'blackqueen', 'blackrook', 'blackbishop', 'blackknight', 'blackpawn']
         print("Piece Detector Dataset initalized!")
@@ -60,25 +63,27 @@ class PieceDetectorDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, i):
-        img = self.tr(read_image(self.data_folder + f'/{i}.jpg') / 255.0).to(device) # applies transfromations to img
+        img = self.tr(read_image(self.data_folder + f'/{i}.jpg') / 255.0) # applies transfromations to img
 
-        boxes = torch.zeros(self.max_objects, 4, device=device)
-        labels = torch.zeros(self.max_objects, device=device)
+        boxes = [] # (32, 4) boxes
+        labels = [] # (32) labels for each box
         for i, piece in enumerate(self.data[i]["Label"]["objects"]):
-            box = torch.tensor(list(piece['bbox'].values()), dtype=torch.float)
-
-            # normalizes bbox coords to (0 - 1)
-            box[0:2] /= self.h
-            box[2:4] /= self.w
-
-            box[2:4] = box[0:2] + box[2:4] # (add height to x1 --> x2) and (add width to y1 --> y2)
-
-            boxes[i, :] = box
+            boxes.append(list(piece['bbox'].values()))
 
             color = piece["classifications"][0]['answer']['value'] # ex: white
             piece_type = piece["classifications"][1]['answer']['value'] # ex: pawn
-
             # finds index of "whitepawn" and appends
             # +1 is added, because classification of 0, means it does not exist
-            labels[i] = torch.tensor(self.classification.index(color + piece_type) + 1)
-        return img, boxes, labels
+            labels.append(self.classification.index(color + piece_type) + 1)
+
+        boxes = torch.tensor(boxes, dtype=torch.float)
+        labels = torch.tensor(labels, dtype=torch.int64)
+        # convert box xywh format to xyxy
+        boxes = box_convert(boxes, 'xywh', 'xyxy')
+        # normalizes bbox coords to (0 - 1)
+        boxes[:, :2] /= self.h
+        boxes[:, 2:] /= self.w
+
+        target = {"boxes": boxes, "labels": labels}
+        
+        return img, target
