@@ -14,19 +14,19 @@ from models import PieceDetector
 from dataloader import BoardDetectorDataset
 from dataloader import PieceDetectorDataset
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
 def train_board_detector(weights_load_path=None, weights_save_folder=None, weights_name="weight",
-                         batch_size=64, learning_rate=3e-4, epochs=30):
+                         batch_size=64, learning_rate=3e-4, epochs=30, from_pretrained=True, device='cpu'):
 
     """
     This function trains the Board Detector
     Args: 
         (str) weights_load_path: path to the Board Detector model weights that needs to be loaded
         (str) weights_save_folder: folder where the Board Detector weights will be saved
+        (str) weights_name: name for the weights that will be saved
         (int) batch_size: size of each batch trained at once
         (float) learning_rate: lr of the model
         (int) epochs: # of iterations through dataset
+        (bool) from_pretrained: should the Board Detector be loader with pretrained weights
 
         in function args:
         (str) loss_save_path: path where losses plot fig (losses.jpg) will be stored
@@ -38,7 +38,7 @@ def train_board_detector(weights_load_path=None, weights_save_folder=None, weigh
     weights_save_path = weights_save_folder + f"/{weights_name}"
     loss_save_path = weights_save_folder + "/losses.jpg"
 
-    board_detector = BoardDetector().to(device)
+    board_detector = BoardDetector(pretrained=from_pretrained).to(device)
     if weights_load_path != None:
         board_detector.load_state_dict(torch.load(weights_load_path)) 
         print('loaded weights for board detector!')
@@ -51,7 +51,7 @@ def train_board_detector(weights_load_path=None, weights_save_folder=None, weigh
         print('no weights will be saved for board detector')
 
     optim = torch.optim.Adam(board_detector.parameters(), lr=learning_rate) 
-    board_detector_dataset = BoardDetectorDataset()
+    board_detector_dataset = BoardDetectorDataset(json_file='dataloader/data/board_data/train/_annotations.coco.json')
 
     dataloader = DataLoader(board_detector_dataset, batch_size=batch_size, shuffle=True)
     
@@ -76,13 +76,37 @@ def train_board_detector(weights_load_path=None, weights_save_folder=None, weigh
                 torch.save(board_detector.state_dict(), weights_save_path)
 
     plt.plot(losses)
-    plt.show()
     plt.savefig(loss_save_path)
+    plt.show()
 
 def train_piece_detector(weights_load_path=None, weights_save_folder=None, weights_name="weight",
-                         batch_size=2, learning_rate=3e-4, epochs=10):
+                         batch_size=2,
+                         learning_rate=0.01, 
+                         weight_decay=1e-4,
+                         epochs=10, 
+                         from_pretrained=True, 
+                         mixed_precision_training=False, 
+                         device='cpu'):
+    """
+    This function trains the Piece Detector
+    Args: 
+        (str) weights_load_path: path to the Board Detector model weights that needs to be loaded
+        (str) weights_save_folder: folder where the Board Detector weights will be saved
+        (str) weights_name: name for the weights that will be saved
+        (int) batch_size: size of each batch trained at once
+        (float) learning_rate: lr of the model
+        (int) epochs: # of iterations through dataset
+        (bool) from_pretrained: should the Board Detector be loader with pretrained weights
+        (bool) mixed_precision_training: reduces the float32 to float16, checkout pytorch documentation for more details
 
-    piece_detector = PieceDetector().to(device)
+        in function args:
+        (str) loss_save_path: path where losses plot fig (losses.jpg) will be stored
+
+    Returns:
+        None, displays losses at the end
+    """
+
+    piece_detector = PieceDetector(pretrained=from_pretrained).to(device)
 
     weights_save_path = weights_save_folder + f"/{weights_name}"
     loss_save_path = weights_save_folder + "/losses.jpg"
@@ -101,9 +125,9 @@ def train_piece_detector(weights_load_path=None, weights_save_folder=None, weigh
     else:
         print('no weights will be saved for piece detector')
 
-    optim = torch.optim.Adam(piece_detector.parameters(), lr=learning_rate)
-    dataset = PieceDetectorDataset(data_folder='dataloader/piece_detector_data',
-                                   json_file='dataloader/piece_detector_data/data.json')
+    optim = torch.optim.SGD(piece_detector.parameters(), lr=learning_rate, momentum=0.9, nesterov=True, weight_decay=weight_decay)
+    dataset = PieceDetectorDataset(json_file='dataloader/data/piece_data/train/_annotations.coco.json')
+    scaler = torch.cuda.amp.GradScaler() if mixed_precision_training else None
     
     # the collate_fn function is needed to create batches without using default stack mehtod,
     # the default collate_fn requires all boxes to be of same size, this is not possible since
@@ -120,12 +144,20 @@ def train_piece_detector(weights_load_path=None, weights_save_folder=None, weigh
             # converts to a list of objects {boxes, lables}
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-            loss_dict = piece_detector(imgs, targets)
-            loss = sum(loss for loss in loss_dict.values())
+            # forward
+            with torch.cuda.amp.autocast(enabled=mixed_precision_training):
+                loss_dict = piece_detector(imgs, targets)
+                loss = sum(loss for loss in loss_dict.values())
 
+            # backward
             optim.zero_grad()
-            loss.backward()
-            optim.step()
+            if scaler is not None:
+                scaler.scale(loss).backward()
+                scaler.step(optim)
+                scaler.update()
+            else:
+                loss.backward()
+                optim.step()
 
             losses += [loss.item()]
             if weights_save_folder != None and loss.item() < lowest_loss:
@@ -133,5 +165,5 @@ def train_piece_detector(weights_load_path=None, weights_save_folder=None, weigh
                 torch.save(piece_detector.state_dict(), weights_save_path)
 
     plt.plot(losses)
-    plt.show()
     plt.savefig(loss_save_path)
+    plt.show()

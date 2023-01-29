@@ -1,52 +1,56 @@
 # installed imports
-from torchvision.utils import save_image, draw_bounding_boxes
-from torch.utils.data import DataLoader
-from torchvision.io import read_image
-from torchvision import transforms
-import matplotlib.pyplot as plt
 import torch
 
-# default imports
-import glob
-import json
-
 # local imports
-from dataloader import BoardDetectorDataset
-from dataloader import PieceDetectorDataset
-from utils import generate_warped_board_images
-from models import PieceDetector
-from models import BoardDetector
-from utils import download_data
-from utils import warp
-from trainers import train_piece_detector
+from utils import *
+from dataloader import BoardDetectorDataset, PieceDetectorDataset
+from trainers import train_piece_detector, train_board_detector
+from models import PieceDetector, BoardDetector
 
-SAVE = False # Toggle this to avoid override
 device = "cuda" if torch.cuda.is_available() else "cpu"
 def main():
-    # epochs = 10
-    # batch_size = 2
-    # lr = 3e-4
-    # train_piece_detector(batch_size=batch_size,
-    #                      epochs=epochs,
-    #                      learning_rate=lr,
-    #                      weights_save_folder='./models/checkpoints/piece_detector/0')
-    test_piece_detector(img_path='dataloader/data/warped_target/0_target.jpg',
-                        weights_path='models/checkpoints/piece_detector/0/weight')
+    # # epochs = 25
+    # # batch_size = 2
+    # # lr = 3e-4
+    # # weight_decay = 0.0005
+    # # train_piece_detector(batch_size=batch_size,
+    # #                      epochs=epochs,
+    # #                      weights_save_folder='./models/checkpoints/piece_detector/2',
+    # #                      weights_load_path='./models/checkpoints/piece_detector/2/weight', 
+    # #                      learning_rate=lr,
+    # #                      weight_decay=weight_decay,
+    # #                      from_pretrained=False,
+    # #                      mixed_precision_training=True,
+    # #                      device=device)
+    # # print('Training Complete!')
+    # show_piece_detector_results(idx=5,
+    #                             weights_path='models/checkpoints/piece_detector/2/weight', 
+    #                             json_file='dataloader/data/piece_data/train/_annotations.coco.json',
+    #                             device=device)
 
+    # epochs = 75
+    # train_board_detector(epochs=epochs,
+    #                      weights_load_path='models/checkpoints/board_detector/6/weight',
+    #                      weights_save_folder='models/checkpoints/board_detector/6')
+    # print('Training Complete!')
+    
+    weights_path='models/checkpoints/board_detector/6/weight'
+    json_file='dataloader/data/board_data/test/_annotations.coco.json'
+    board_detector = BoardDetector().to(device)
+    board_detector.load_state_dict(torch.load(weights_path))
+    board_detector.eval()
 
-def test_piece_detector(img_path, weights_path):
-    piece_detector = PieceDetector().to(device)
-    piece_detector.load_state_dict(torch.load(weights_path))
-    piece_detector.eval()
-
-    raw_img = read_image(img_path)
-    img = raw_img.unsqueeze(0).to(device) / 255.0
-    boxes, labels, scores = piece_detector(img)[0].values()
-
-    out = draw_bounding_boxes(raw_img, boxes * 320, width=3)
-    plt.imshow(out.permute(1, 2, 0))    
-    plt.show()
-
-
+    board_data = BoardDetectorDataset(json_file)
+    while True:
+        print("idx:")
+        try:
+            idx = int(input())
+        except:
+            quit()
+        show_board_detector_results(idx,
+                                    board_detector,
+                                    board_data,
+                                    device=device)
+    
 if __name__ == '__main__':
     main()

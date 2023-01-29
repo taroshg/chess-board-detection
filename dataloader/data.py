@@ -7,6 +7,7 @@ import torch
 
 # default imports
 import json
+import os
 
 # original size: 320 x 320
 class BoardDetectorDataset(Dataset):
@@ -16,68 +17,80 @@ class BoardDetectorDataset(Dataset):
         (str) data_folder: folder with all normal chess board images
         (tuple) size: resize shape of the images
     """
-    def __init__(self, json_file, data_folder, size=(320, 320)) -> None:
+    def __init__(self, json_file, size=(320, 320)) -> None:
         super().__init__()
         assert(json_file != None), "json_file not provided for board detector dataset"
-        assert(data_folder != None), "data_folder not provided for board detctor dataset"
-        self.data_folder = data_folder
+        self.data_folder, _ = os.path.split(json_file)
+        self.json_file = json_file
         self.data = json.load(open(json_file))
         self.s = size
         self.tr = transforms.Resize(size)
+        self.classes = self.data['categories'] # [a1, a8, h1, h8]
         print("Board Detector Dataset initalized!")
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, i):
-        coords = self.data[i]["Label"]["objects"][0]["polygon"]
-        img = self.tr(read_image(self.data_folder + f'/{i}.jpg') / 255.0) # applies transfromations to img
-        h = self.s[0]
-        w = self.s[1]
-        # gets the coords and normalizes it to 0 - 1.
-        label = torch.tensor([coords[0]['x'] / h, coords[0]['y'] / w, coords[1]['x'] / h, coords[1]['y'] / w,
-                             coords[2]['x'] / h, coords[2]['y'] / w, coords[3]['x']/ h, coords[3]['y'] / w]);
-        return img, label
+        img_path = os.path.join(self.data_folder, self.data["images"][i]["file_name"])
+        img = self.tr(read_image(img_path) / 255.0) # applies transfromations to img
+
+        # there are only 4 "bounding box" keypoints per image and are in order.
+        # therefore, this is more effecient than a loop to find "bounding box" keypoints
+        box_i = i * 4
+        keypoints = [] # [a8, h8, h1, a1]
+        for k in range(box_i, box_i + 4):
+            keypoint = self.data["annotations"][k] 
+            if keypoint["category_id"] == 1: # if a1
+                keypoints.append(keypoint["bbox"][:2]) # we just need x y points for keypoint
+            if keypoint["category_id"] == 2: # if a8
+                keypoints.append(keypoint["bbox"][:2])
+            if keypoint["category_id"] == 3: # if h1
+                keypoints.append(keypoint["bbox"][:2])
+            if keypoint["category_id"] == 4: # if h8
+                keypoints.append(keypoint["bbox"][:2])
+
+        keypoints = torch.tensor(keypoints, dtype=torch.float).flatten() / self.s[0]
+
+        return img, keypoints
 
 class PieceDetectorDataset(Dataset):
     """
     Args:
         (str) json_file: json file downloaded from labelbox "Chess Piece Detection" project
-        (str) data_folder: folder with all warped chess board images
         (tuple) size: resize shape of the images
     """
-    def __init__(self, json_file, data_folder, size=(320, 320)):
+    def __init__(self, json_file, size=(320, 320)):
         super().__init__()
         assert(json_file != None), "json_file not provided for piece detector dataset"
-        assert(data_folder != None), "data_folder not provided for piece detctor dataset"
-        self.data_folder = data_folder
+        self.data_folder, _ = os.path.split(json_file)
+        self.json_file = json_file
         self.data = json.load(open(json_file))
         self.h = size[0]
         self.w = size[1]
         self.tr = transforms.Resize(size)
-        self.classification = ['whiteking', 'whitequeen', 'whiterook', 'whitebishop', 'whiteknight', 'whitepawn',
-                               'blackking', 'blackqueen', 'blackrook', 'blackbishop', 'blackknight', 'blackpawn']
+        self.classes = self.data['categories']
         print("Piece Detector Dataset initalized!")
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data["images"])
 
     def __getitem__(self, i):
-        img = self.tr(read_image(self.data_folder + f'/{i}.jpg') / 255.0) # applies transfromations to img
+        img_path = os.path.join(self.data_folder, self.data["images"][i]["file_name"])
+        img = self.tr(read_image(img_path) / 255.0) # applies transfromations to img
 
-        boxes = [] # (32, 4) boxes
-        labels = [] # (32) labels for each box
-        for i, piece in enumerate(self.data[i]["Label"]["objects"]):
-            boxes.append(list(piece['bbox'].values()))
+        # gets all corresponding bounding boxes and labels for image i
+        boxes = [] # (32, 4)
+        labels = [] # (32)
+        for obj in self.data["annotations"]:
+            if obj["image_id"] == i:
+                boxes.append(obj["bbox"])
+                labels.append(obj["category_id"])
 
-            color = piece["classifications"][0]['answer']['value'] # ex: white
-            piece_type = piece["classifications"][1]['answer']['value'] # ex: pawn
-            # finds index of "whitepawn" and appends
-            # +1 is added, because classification of 0, means it does not exist
-            labels.append(self.classification.index(color + piece_type) + 1)
-
+        # converts lists to tensors
         boxes = torch.tensor(boxes, dtype=torch.float)
         labels = torch.tensor(labels, dtype=torch.int64)
+
         # convert box xywh format to xyxy
         boxes = box_convert(boxes, 'xywh', 'xyxy')
         # normalizes bbox coords to (0 - 1)

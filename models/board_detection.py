@@ -6,10 +6,10 @@ class BoardDetector(nn.Module):
     """
     Simple pretrained densenet201, with classifer output of (1, 8)
     """
-    def __init__(self):
+    def __init__(self, pretrained=True):
         super().__init__()
 
-        self.densenet = densenet201(pretrained=True)
+        self.densenet = densenet201(pretrained=pretrained)
         self.densenet.classifier = nn.Identity()
 
         # ((x1, y1), (x2, y2), (x3, y3), (x4, y4))
