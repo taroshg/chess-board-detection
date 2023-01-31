@@ -342,3 +342,6 @@ venv/
 
 # Log files
 *.log
+
+# Weights
+models/checkpoints/

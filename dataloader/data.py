@@ -38,17 +38,17 @@ class BoardDetectorDataset(Dataset):
         # there are only 4 "bounding box" keypoints per image and are in order.
         # therefore, this is more effecient than a loop to find "bounding box" keypoints
         box_i = i * 4
-        keypoints = [] # [a8, h8, h1, a1]
+        keypoints = [0, 0, 0, 0] # [a8, h8, h1, a1]
         for k in range(box_i, box_i + 4):
             keypoint = self.data["annotations"][k] 
             if keypoint["category_id"] == 1: # if a1
-                keypoints.append(keypoint["bbox"][:2]) # we just need x y points for keypoint
+                keypoints[3] = keypoint["bbox"][:2] # we just need x y points for keypoint
             if keypoint["category_id"] == 2: # if a8
-                keypoints.append(keypoint["bbox"][:2])
+                keypoints[0] = keypoint["bbox"][:2]
             if keypoint["category_id"] == 3: # if h1
-                keypoints.append(keypoint["bbox"][:2])
+                keypoints[2] = keypoint["bbox"][:2]
             if keypoint["category_id"] == 4: # if h8
-                keypoints.append(keypoint["bbox"][:2])
+                keypoints[1] = keypoint["bbox"][:2]
 
         keypoints = torch.tensor(keypoints, dtype=torch.float).flatten() / self.s[0]
 

@@ -67,10 +67,11 @@ def show_board_detector_results(idx: int,
     """
 
     img, keypoints_actual = board_data[idx]
-    keypoints_actual = (keypoints_actual * 320).to(device)
+    img = img.cpu()
+    keypoints_actual = (keypoints_actual * 320).cpu()
 
     keypoints = board_detector(img.unsqueeze(0).to(device))
-    keypoints = (keypoints[0] * 320).detach()
+    keypoints = (keypoints[0] * 320).detach().cpu()
 
     f, ax = plt.subplots(2,2)
     ax[0, 0].imshow(img.permute(1, 2, 0))

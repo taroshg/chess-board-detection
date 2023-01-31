@@ -11,10 +11,7 @@ import json
 from dataloader import BoardDetectorDataset
 from models import BoardDetector
 
-
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-def warp(img : torch.Tensor, coords, rotate=0):
+def warp(img : torch.Tensor, coords, rotate=0, device='cpu'):
     """
     takes a section of an image (four coordinates) and warps to fill the entire image with it
     Args:
@@ -42,7 +39,7 @@ def warp(img : torch.Tensor, coords, rotate=0):
 
     return warped_img
 
-def generate_warped_board_images(from_model, load_folder, save_folder, json_file="", model_path=""):
+def generate_warped_board_images(from_model, load_folder, save_folder, json_file, model_path, device):
     """
     takes all normal board images in a folder and warps them using the warp function (see warp function for more details)
 
