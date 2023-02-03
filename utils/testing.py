@@ -11,49 +11,40 @@ from models import PieceDetector, BoardDetector
 from dataloader import BoardDetectorDataset, PieceDetectorDataset
 from utils import warp
 
-def show_piece_detector_results(idx, weights_path, json_file, device):
+def show_piece_detector_results(idx: int, 
+                                piece_detector: PieceDetector,
+                                piece_data: PieceDetectorDataset,
+                                device):
     """
     using draw_bounding_boxes, the function displays results of predicted boxes
 
     Args:
         (str) img_path: path of the image being tested
-        (str) weights_path: path of the weights for the piece detector model
-        (str) json_file: Labelbox json file with the annotations
-
+        (PieceDetectorDataset object) piece_data: initialized, PieceDetectorDataset
+        (PieceDetector object) piece_detector: initialized, PieceDetector model
+        
     Returns:
         None
     """
-    piece_detector = PieceDetector().to(device)
-    piece_detector.load_state_dict(torch.load(weights_path))
-    piece_detector.eval()
+    img, target = piece_data[idx]
+    real_boxes, real_labels = target.values()
+    real_labels = [piece_data.classes[l]["name"] for l in real_labels]
 
-    data = json.load(open(json_file))
-    data_folder, _ = os.path.split(json_file)
-
-    classes = data['categories']
-    raw_img = read_image(os.path.join(data_folder, data["images"][idx]["file_name"]))
-    img = raw_img.unsqueeze(0).to(device) / 255.0
-    boxes, labels, scores = piece_detector(img)[0].values()
-    labels = [classes[label]["name"] for label in labels]
-
-    objects = [obj for obj in data["annotations"] if obj.get('image_id') == idx]
-    real_boxes = [obj["bbox"] for obj in objects]
-    real_labels = [classes[obj["category_id"]]["name"] for obj in objects]
-
-    real_boxes = torch.tensor(real_boxes, dtype=torch.float)
-    real_boxes = box_convert(real_boxes, 'xywh', 'xyxy')
-
-    out = draw_bounding_boxes(raw_img, boxes * 320, labels, width=2)
-    real_out = draw_bounding_boxes(raw_img, real_boxes, real_labels, width=2)
+    boxes, labels, scores = piece_detector(img.unsqueeze(0).to(device))[0].values()
+    labels = [piece_data.classes[l]["name"] for l in labels] # convert int labels to string labels (0 -> white pawn)
     
-    f, ax = plt.subplots(1,2)
-    ax[0].imshow(out.permute(1, 2, 0))
-    ax[1].imshow(real_out.permute(1, 2, 0))
+    og_img = (img * 255).to(torch.uint8)
+    out = draw_bounding_boxes(og_img, boxes * 320, labels, width=2)
+    real_out = draw_bounding_boxes(og_img, real_boxes * 320, real_labels, width=2)
+    
+    f, ax = plt.subplots(1,2, figsize=(12, 10))
+    ax[0].imshow(real_out.permute(1, 2, 0))
+    ax[1].imshow(out.permute(1, 2, 0))
     plt.show()
 
 def show_board_detector_results(idx: int, 
-                                board_detector: object,
-                                board_data: object,
+                                board_detector: BoardDetector,
+                                board_data: BoardDetectorDataset,
                                 device):
     """
     Displays two board dectector results, board detector predition and actual target
@@ -67,13 +58,17 @@ def show_board_detector_results(idx: int,
     """
 
     img, keypoints_actual = board_data[idx]
+    keypoints = board_detector(img.unsqueeze(0).to(device))[0]
+
+    criteron = torch.nn.MSELoss()
+    loss = criteron(keypoints.to(device), keypoints_actual.to(device))
+    print(f'loss on displayed image: {loss}')
+
     img = img.cpu()
     keypoints_actual = (keypoints_actual * 320).cpu()
+    keypoints = (keypoints * 320).detach().cpu()
 
-    keypoints = board_detector(img.unsqueeze(0).to(device))
-    keypoints = (keypoints[0] * 320).detach().cpu()
-
-    f, ax = plt.subplots(2,2)
+    f, ax = plt.subplots(2,2, figsize=(12, 10))
     ax[0, 0].imshow(img.permute(1, 2, 0))
     ax[0, 0].plot(keypoints_actual[0::2], keypoints_actual[1::2], '-o')
     ax[0, 1].imshow(img.permute(1, 2, 0))
