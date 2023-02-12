@@ -8,8 +8,9 @@ import torch
 import math
 
 # local imports
-from models import PieceDetector
+from detectors import PieceDetector
 from dataloader import PieceDetectorDataset
+
 
 def train_piece_detector(weights_load_path=None, weights_save_folder=None, weights_name="weight",
                          batch_size=2,
@@ -43,22 +44,22 @@ def train_piece_detector(weights_load_path=None, weights_save_folder=None, weigh
     weights_save_path = weights_save_folder + f"/{weights_name}"
     loss_save_path = weights_save_folder + "/losses.jpg"
 
-    if weights_save_folder != None:
+    if weights_save_folder is not None:
         weights_save_path = weights_save_folder + f"/{weights_name}"
 
-    if weights_load_path != None:
-        piece_detector.load_state_dict(torch.load(weights_load_path))
+    if weights_load_path is not None:
+        piece_detector.load_state_dict(torch.load(weights_load_path, map_location=device))
         print('loaded weights for piece detector!')
     else:
         print('no weights are loaded for piece detector')
 
-    if weights_save_path != None:
+    if weights_save_path is not None:
         print('weights will be saved at' + weights_save_path + ' for piece detector')
     else:
         print('no weights will be saved for piece detector')
 
     optim = torch.optim.SGD(piece_detector.parameters(), lr=learning_rate, momentum=0.9, nesterov=True, weight_decay=weight_decay)
-    dataset = PieceDetectorDataset(json_file='dataloader/data/piece_data/train/_annotations.coco.json')
+    dataset = PieceDetectorDataset(json_file='dataloader/data/piece_data/piece_detection_coco_1000.json')
     scaler = torch.cuda.amp.GradScaler() if mixed_precision_training else None
     
     # the collate_fn function is needed to create batches without using default stack mehtod,
@@ -92,7 +93,7 @@ def train_piece_detector(weights_load_path=None, weights_save_folder=None, weigh
                 optim.step()
 
             losses += [loss.item()]
-            if weights_save_folder != None and loss.item() < lowest_loss:
+            if weights_save_folder is not None and loss.item() < lowest_loss:
                 lowest_loss = loss
                 torch.save(piece_detector.state_dict(), weights_save_path)
 

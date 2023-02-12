@@ -9,7 +9,7 @@ import torch
 import math
 
 # local imports
-from models import BoardDetector
+from detectors import BoardDetector
 from dataloader import BoardDetectorDataset
 
 def train_board_detector(model='densenet',
@@ -60,7 +60,7 @@ def train_board_detector(model='densenet',
     optim = torch.optim.Adam(board_detector.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, patience=5, factor=0.1, verbose=True)
 
-    board_dataset = BoardDetectorDataset(json_file='dataloader/data/board_data/train/_annotations.coco.json')
+    board_dataset = BoardDetectorDataset(json_file='dataloader/data/board_data/board_dataset_coco.json')
     scaler = torch.cuda.amp.GradScaler() if mixed_precision_training else None
 
     dataloader = DataLoader(board_dataset, batch_size=batch_size, shuffle=True)

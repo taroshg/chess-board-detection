@@ -344,4 +344,6 @@ venv/
 *.log
 
 # Weights
-models/checkpoints/*
+detectors/checkpoints/*
+# Data
+dataloader/data/*

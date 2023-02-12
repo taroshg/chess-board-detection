@@ -9,13 +9,14 @@ import torch
 import json
 import os
 
+
 class PieceDetectorDataset(Dataset):
     """
     Args:
         (str) json_file: json file downloaded from labelbox "Chess Piece Detection" project
         (tuple) size: resize shape of the images
     """
-    def __init__(self, json_file, size=(320, 320)):
+    def __init__(self, json_file, size=(1000, 1000)):
         super().__init__()
         assert(json_file != None), "json_file not provided for piece detector dataset"
         self.data_folder, _ = os.path.split(json_file)
@@ -31,21 +32,20 @@ class PieceDetectorDataset(Dataset):
         return len(self.data["images"])
 
     def __getitem__(self, i):
-        img_path = os.path.join(self.data_folder, self.data["images"][i]["file_name"])
+        working_img = self.data["images"][i]
+        img_path = os.path.join(self.data_folder, working_img["file_name"])
         img = self.tr(read_image(img_path) / 255.0) # applies transfromations to img
 
         # gets all corresponding bounding boxes and labels for image i
         boxes = [] # (32, 4)
         labels = [] # (32)
         for obj in self.data["annotations"]:
-            if obj["image_id"] == i:
+            if obj["image_id"] == working_img["id"]:
                 boxes.append(obj["bbox"])
                 labels.append(obj["category_id"])
-
         # converts lists to tensors
         boxes = torch.tensor(boxes, dtype=torch.float)
         labels = torch.tensor(labels, dtype=torch.int64)
-
         # convert box xywh format to xyxy
         boxes = box_convert(boxes, 'xywh', 'xyxy')
         # normalizes bbox coords to (0 - 1)

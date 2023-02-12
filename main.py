@@ -1,49 +1,63 @@
 # installed imports
 import torch
 
-# local imports
-from utils import *
-from dataloader import BoardDetectorDataset, PieceDetectorDataset
-from trainers import train_piece_detector, train_board_detector
-from models import PieceDetector, BoardDetector
+# default imports
+from datetime import datetime as time
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+# local imports
+from dataloader import BoardDetectorDataset, PieceDetectorDataset
+from detectors import BoardDetector, PieceDetector
+from trainers import train_board_detector, train_piece_detector
+from helpers import *
+
+device = "cpu"
+if torch.cuda.is_available():
+    print('running mps...')
+    device = "cuda"
+elif torch.backends.mps.is_available():
+    print('running mps...')
+    device = "mps"
+
 
 def main():
-
-    MODEL = '0'
-    # epochs = 25
-    # batch_size = 2
+    """
+    PIECE DETECTOR TRAINING SECTION
+    """
+    # MODEL = 'faster_rcnn_M1'
+    # PRETRAINED = False
+    # epochs = 100
+    # batch_size = 32
     # lr = 3e-4
     # weight_decay = 0.0005
     # train_piece_detector(batch_size=batch_size,
     #                      epochs=epochs,
-    #                      weights_save_folder='./models/checkpoints/piece_detector/0',
-    #                      weights_load_path=None, 
+    #                      weights_load_path=None,
+    #                      weights_save_folder=f'./detections/checkpoints/piece_detector/{MODEL}',
     #                      learning_rate=lr,
     #                      weight_decay=weight_decay,
-    #                      from_pretrained=True,
-    #                      mixed_precision_training=True,
+    #                      from_pretrained=PRETRAINED,
+    #                      mixed_precision_training=torch.cuda.is_available(),
     #                      device=device)
     # print('Training Complete!')
-    weights = f'models/checkpoints/piece_detector/{MODEL}/weight'
-    json_file = 'dataloader/data/piece_data/train/_annotations.coco.json'
+    #
+    # weights = f'detections/checkpoints/piece_detector/{MODEL}/weight'
+    # json_file = 'dataloader/data/piece_data/piece_detection_coco_1000.json'
+    # piece_detector = PieceDetector(pretrained=PRETRAINED).to(device)
+    # piece_detector.load_state_dict(torch.load(weights, map_location=device))
+    # piece_detector.eval()
+    # piece_data = PieceDetectorDataset(json_file)
+    #
+    # idx = 0
+    # while idx < len(piece_data):
+    #     show_piece_detector_results(idx, piece_detector, piece_data, device)
+    #     try:
+    #         idx += 1
+    #     finally:
+    #         quit()
 
-    piece_detector = PieceDetector().to(device)
-    piece_detector.load_state_dict(torch.load(weights, map_location=device))
-    piece_detector.eval()
-    piece_data = PieceDetectorDataset(json_file)
-
-    idx = 0
-    while idx < len(piece_data):
-        print(idx)
-        show_piece_detector_results(idx, piece_detector, piece_data, device)
-        try:
-            idx += 1
-        except:
-            quit()
-
-
+    """
+    BOARD DETECTOR TRAINING SECTION
+    """
     # MODEL = 'squeezenet'
     # epochs = 100
     # batch_size = 64
@@ -52,14 +66,14 @@ def main():
     #                      epochs=epochs,
     #                      batch_size=batch_size,
     #                      learning_rate=lr,
-    #                      mixed_precision_training=True if device=='cuda' else False,
+    #                      mixed_precision_training=torch.cuda.is_available(),
     #                      weights_load_path=None,
-    #                      weights_save_folder=f'models/checkpoints/board_detector/{MODEL}',
+    #                      weights_save_folder=f'detectors/checkpoints/board_detector/{MODEL}',
     #                      device=device)
     # print('Training Complete!')
 
-    # weights = f'models/checkpoints/board_detector/{MODEL}/weight'
-    # json_file = 'dataloader/data/board_data/train/_annotations.coco.json'
+    # weights = f'detectors/checkpoints/board_detector/{MODEL}/weight'
+    # json_file = 'dataloader/data/board_data/board_dataset_coco.json'
 
     # board_detector = BoardDetector(model=MODEL).to(device)
     # board_detector.load_state_dict(torch.load(weights, map_location=device))
@@ -74,6 +88,15 @@ def main():
     #         idx += 1
     #     except:
     #         quit()
+
+    # json_file = 'dataloader/data/board_data/board_dataset_coco.json'
+    # board_data = BoardDetectorDataset(json_file)
+    # generate_warped_board_images(board_data=board_data, 
+    #                              load_folder='dataloader/data/raw', 
+    #                              save_folder='dataloader/data/raw_warped', 
+    #                              size=(1000, 1000),
+    #                              device=device)
+
 
 if __name__ == '__main__':
     main()

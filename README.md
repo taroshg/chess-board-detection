@@ -4,9 +4,10 @@ The goal of this project is to have users take a picture of any tournament chess
 ### TODO:
 - Collect and Train on more data for board detector
 - Overfit piece detector to the ENTIRE training set
+
 ### Done:
 - Issue with board detector overfitting to certain data fixed
-    - bug fixed with defining corrrect length of database in board_dataset.py class.
+    - bug fixed with defining correct length of database in board_dataset.py class.
     - squeezenet overfit to the ENTIRE training set!!
 - cleaned up show_piece_detector_results function in testing.py in utils
 ### Labeling Process:
