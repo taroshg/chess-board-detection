@@ -18,7 +18,7 @@ class PieceDetectorDataset(Dataset):
     """
     def __init__(self, json_file, size=(1000, 1000)):
         super().__init__()
-        assert(json_file != None), "json_file not provided for piece detector dataset"
+        assert(json_file is not None), "json_file not provided for piece detector dataset"
         self.data_folder, _ = os.path.split(json_file)
         self.json_file = json_file
         self.data = json.load(open(json_file))
@@ -26,7 +26,7 @@ class PieceDetectorDataset(Dataset):
         self.w = size[1]
         self.tr = transforms.Resize(size)
         self.classes = self.data['categories']
-        print("Piece Detector Dataset initalized!")
+        print("Piece Detector Dataset initialized!")
 
     def __len__(self):
         return len(self.data["images"])
@@ -34,24 +34,24 @@ class PieceDetectorDataset(Dataset):
     def __getitem__(self, i):
         working_img = self.data["images"][i]
         img_path = os.path.join(self.data_folder, working_img["file_name"])
-        img = self.tr(read_image(img_path) / 255.0) # applies transfromations to img
+        img = self.tr(read_image(img_path) / 255.0) # applies transformations to img
 
         # gets all corresponding bounding boxes and labels for image i
-        boxes = [] # (32, 4)
-        labels = [] # (32)
+        boxes = []  # (32, 4)
+        labels = []  # (32)
+        areas = []
         for obj in self.data["annotations"]:
             if obj["image_id"] == working_img["id"]:
                 boxes.append(obj["bbox"])
                 labels.append(obj["category_id"])
-        # converts lists to tensors
+                areas.append(obj["area"])
+        # convert lists to tensors
         boxes = torch.tensor(boxes, dtype=torch.float)
         labels = torch.tensor(labels, dtype=torch.int64)
+        areas = torch.tensor(areas, dtype=torch.float)
         # convert box xywh format to xyxy
         boxes = box_convert(boxes, 'xywh', 'xyxy')
-        # normalizes bbox coords to (0 - 1)
-        boxes[:, :2] /= self.h
-        boxes[:, 2:] /= self.w
 
-        target = {"boxes": boxes, "labels": labels}
+        target = {"boxes": boxes, "labels": labels, "areas": areas}
         
         return img, target

@@ -12,7 +12,7 @@ class PieceDetector(nn.Module):
     """
     def __init__(self, model='faster_rcnn', pretrained=True):
         super().__init__()
-        max_objs = 100 # total of 32 pieces on board at any point
+        max_objs = 32 # total of 32 pieces on board at any point
         num_classes = 12 + 1 # 12 types of pieces (white pawn, black rook ... etc) + 1 for no obj
         fasterrcnn_model = fasterrcnn(weights=FasterRCNN_ResNet50_FPN_Weights.DEFAULT if pretrained else None, 
                                       box_detections_per_img=max_objs)

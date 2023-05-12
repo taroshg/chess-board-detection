@@ -1,16 +1,19 @@
 # installed imports
+import torch
 from torchvision.models import densenet201, DenseNet201_Weights
 from torchvision.models import squeezenet1_1, SqueezeNet1_1_Weights
 from torchvision.models import resnet50, ResNet50_Weights
 import torch.nn as nn
+
 
 class BoardDetector(nn.Module):
     """
     Simple pretrained CNN with classifer output of (1, 8) 
     for (x, y, x, y, x, y, x, y) keypoints of board corners
     """
-    def __init__(self, pretrained=True, model='squeezenet'):
+    def __init__(self, pretrained=True, model='squeezenet', target='poin ts'):
         super().__init__()
+        self.target = target
         assert(model == 'densenet' or 
                model == 'squeezenet' or
                model == 'resnet'), "incorrect model name!"
@@ -41,4 +44,11 @@ class BoardDetector(nn.Module):
     def forward(self, x):
         x = self.model(x)
         x = self.out(x)
-        return  self.act(x)
+
+        return self.act(x)
+
+    def loss_function(self):
+        if self.target == 'points':
+            return nn.MSELoss()
+        if self.target == 'mask':
+            return nn.BCELoss()

@@ -45,7 +45,7 @@ def train_board_detector(model='densenet',
     weights_save_path = weights_save_folder + f"/{weights_name}"
     loss_save_path = weights_save_folder + "/losses.jpg"
 
-    board_detector = BoardDetector(pretrained=from_pretrained, model=model).to(device)
+    board_detector = BoardDetector(pretrained=from_pretrained, model=model, target='mask').to(device)
     if weights_load_path != None:
         board_detector.load_state_dict(torch.load(weights_load_path)) 
         print('loaded weights for board detector!')
@@ -60,12 +60,11 @@ def train_board_detector(model='densenet',
     optim = torch.optim.Adam(board_detector.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, patience=5, factor=0.1, verbose=True)
 
-    board_dataset = BoardDetectorDataset(json_file='dataloader/data/board_data/board_dataset_coco.json')
+    board_dataset = BoardDetectorDataset(json_file='dataloader/data/board_data/board_dataset_coco.json', target='mask')
     scaler = torch.cuda.amp.GradScaler() if mixed_precision_training else None
 
     dataloader = DataLoader(board_dataset, batch_size=batch_size, shuffle=True)
-    
-    criterion = nn.MSELoss()
+    criterion = board_detector.loss_function()
 
     losses = []
     lowest_loss = math.inf
@@ -89,7 +88,7 @@ def train_board_detector(model='densenet',
                 optim.step()
 
             losses += [loss.item()]
-            if weights_save_folder != None and loss.item() < lowest_loss:
+            if weights_save_folder is not None and loss.item() < lowest_loss:
                 lowest_loss = loss.item()
                 torch.save(board_detector.state_dict(), weights_save_path)
 

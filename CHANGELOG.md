@@ -1,4 +1,10 @@
 # Changelog
+## [1.0.1] - 2023-
+### Changes
+- resized _devlog images to reduce file sizes
+### Added
+- areas into the target of Piece Detector
+- 
 ## [1.0.0] - 2023-02-12
 ### Changes
 - switched from roboflow annotator to VIA
