@@ -94,10 +94,58 @@ is going to work for a larger dataset.
 #### New implementation: Tensorboard
 Along with the major fix, I have implemented tensorboard to visualize and track the losses to better
 evaluate the model. I have **begun hyperparameter search and found that batch size of 2 and learning rate of
-1e-4 worked best for this small datase**t. I plan to continue to further search for better hyperparameters.
+1e-4 worked best for this small dataset**. I plan to continue to further search for better hyperparameters.
 <br>
 <img src="images/23may11/losses.jpg" height="300px"/><br>
 _loss_rpn_box_reg (dark red): loss of the predicted box vs ground truth box_<br>
 _loss_box_red (pink): loss of predicted location of bbox vs ground truth box location_<br>
 _loss_objectiveness (light blue): loss of if there is an object in bbox_<br>
 _loss_classifier (blue): classification loss of piece in bbox_<br><br>
+
+### Synthetic Data Generation (May 19, 2023)
+
+#### Plan
+The motivation behind synthetic data generation is to avoid 
+the tedious task of collecting and labeling chess images by hand, 
+which can take weeks to collect and label just 100 images. My plan was
+to generate synthetic data using Blender, since it allows for python scripting.
+
+#### Action
+Although the idea was simple, the implementation was difficult. Fortunately, I
+had a fair bit of experience using Blender which made it a little easier.
+
+###### Step 1. Create a realistic scene
+I had to search and download 3D piece models, I had to learn about creating textures, using nodes, 
+principled BSDF, different lighting and UV unwrapping.
+
+###### Step 2. Write code to create random scenes
+This involved writing python code to place camera in different positions while
+still looking at the board. Setting up random positions on the board
+using fen as input. There are still a lot more randomness that could take place
+such as different piece types, board color, table material, lighting change, and
+various environment props.
+
+###### Step 3. Write code to create annotations
+This was difficult to come up with entirely from my own code, so I have used
+help from the community. Below are the links:
+
+https://github.com/georg-wolflein/chesscog/blob/master/scripts/synthesize_data.py#L195 <br>
+https://blender.stackexchange.com/a/158236 <br>
+https://stackoverflow.com/questions/63753960 <br>
+
+#### output example:
+<img src="images/23may19/example.jpg" width="500">
+
+#### output example with annotations:
+<img src="images/23may19/output.png" width="500">
+
+Clearly, the annotations are far more accurate than humans, and
+the variation of the image can be limitless. It really comes down
+to how realistic I can render the scene.
+
+
+
+
+
+
+

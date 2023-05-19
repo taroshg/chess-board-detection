@@ -10,7 +10,7 @@ import json
 import os
 from glob import glob
 
-from detectors import PieceDetector, BoardDetector
+from models import PieceDetector, BoardDetector
 from dataloader import BoardDetectorDataset, PieceDetectorDataset
 from helpers import warp
 
@@ -30,7 +30,7 @@ def piece_detector_results(idx: int,
     @return: returns two image tensors, 1st is the actual output, 2nd is the prediction
     """
     img, target = piece_data[idx]
-    real_boxes, real_labels, _ = target.values()
+    real_boxes, real_labels = target.values()
     real_labels = [piece_data.classes[l]["name"] for l in real_labels]
 
     boxes, labels, scores = piece_detector(img.unsqueeze(0).to(device))[0].values()

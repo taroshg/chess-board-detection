@@ -5,13 +5,16 @@ from torchvision.models import squeezenet1_1, SqueezeNet1_1_Weights
 from torchvision.models import resnet50, ResNet50_Weights
 import torch.nn as nn
 
+from torchvision.models.detection import MaskRCNN_ResNet50_FPN_Weights
+from torchvision.models.detection import maskrcnn_resnet50_fpn as maskrcnn
+
 
 class BoardDetector(nn.Module):
     """
     Simple pretrained CNN with classifer output of (1, 8) 
     for (x, y, x, y, x, y, x, y) keypoints of board corners
     """
-    def __init__(self, pretrained=True, model='squeezenet', target='poin ts'):
+    def __init__(self, pretrained=True, model='squeezenet', target='points'):
         super().__init__()
         self.target = target
         assert(model == 'densenet' or 
@@ -52,3 +55,8 @@ class BoardDetector(nn.Module):
             return nn.MSELoss()
         if self.target == 'mask':
             return nn.BCELoss()
+
+
+class BoardMask(nn.Module):
+    def __init__(self, pretrained=False):
+        mask = maskrcnn(weights=MaskRCNN_ResNet50_FPN_Weights if pretrained else None, num_classes=1)

@@ -1,5 +1,5 @@
 # installed imports
-from kornia.geometry.transform.imgwarp import get_perspective_transform, warp_perspective
+from kornia.geometry.transform.imgwarp import get_perspective_transform, warp_perspective, transform_points
 from torchvision.utils import save_image
 from torchvision.io import read_image
 from torchvision import transforms
@@ -12,7 +12,8 @@ import json
 
 # local imports
 from dataloader import BoardDetectorDataset
-from detectors import BoardDetector
+from models import BoardDetector
+
 
 def warp(img : torch.Tensor, coords, rotate=0, device='cpu'):
     """
@@ -40,7 +41,28 @@ def warp(img : torch.Tensor, coords, rotate=0, device='cpu'):
     # use perspective transform matrix to transform resized image
     warped_img = warp_perspective(img, M, dsize=(h, w))
 
-    return warped_img
+    return warped_img, M
+
+
+def warp_points(points, coords, img_size=(320, 320), device='cpu'):
+    """
+
+    Args:
+        points (torch.Tensor): point locations for every piece (batch, n_points, 2)
+        coords (torch.Tensor): (1, 8) corner points of the board (x1, y1, x2, y2, ...)
+        img_size (tuple): height and width of image
+        device: device
+
+    Returns:
+        new points that are warped to img_size
+
+    """
+    w, h = img_size
+    new_coords = torch.Tensor([[[0, 0], [w, 0], [w, h], [0, h]]]).to(device)
+    M = get_perspective_transform(reshape_coords(coords), new_coords)
+
+    return transform_points(M, points)
+
 
 def generate_warped_board_images(load_folder: str, save_folder: str, size: tuple,
                                  board_detector: BoardDetector = None,
@@ -77,6 +99,7 @@ def generate_warped_board_images(load_folder: str, save_folder: str, size: tuple
             coords = reshape_coords(board_detector(inp)[0] * size[0])
             out = warp(img=out_tr(raw_inp), coords=coords, device=device) 
             save_image(out[0], save_folder + f"/{filename}_warped_pred.jpg")
+
 
 def reshape_coords(out: torch.Tensor) -> torch.Tensor:
     """

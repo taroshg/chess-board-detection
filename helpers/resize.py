@@ -52,3 +52,20 @@ def resize_coco_bbox_annotations(coco_json: str, from_size: tuple, size: tuple):
     path = os.path.splitext(coco_json)[0] + f'_{size[0]}.json' # takes path and appends _{size}.json to differenciate files
     json.dump(data,open(path, 'w'))
 
+def resize_coco_keypoint_annotations(coco_json: str, from_size: tuple, size: tuple):
+    """
+        resizes bounding boxes coco json annotations
+    """
+    assert(from_size[0] == from_size[1]), "images have to have square ratio"
+    assert(size[0] == size[1]), "images have to have square ratio"
+
+    data = json.load(open(coco_json))
+
+    for annotation in tqdm(data['annotations']):
+        annotation['keypoints'][0] *= (size[0] / from_size[0])
+        annotation['keypoints'][1] *= (size[1] / from_size[1])
+
+    path = os.path.splitext(coco_json)[0] + f'_{size[0]}.json' # takes path and appends _{size}.json to differenciate files
+    json.dump(data,open(path, 'w'))
+
+

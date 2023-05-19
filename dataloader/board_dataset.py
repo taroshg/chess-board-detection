@@ -2,6 +2,8 @@
 from torchvision.io import read_image
 from torch.utils.data import Dataset
 from torchvision import transforms
+from torchvision.transforms.functional import pil_to_tensor
+from PIL import Image, ImageDraw
 import torch
 
 # default imports
@@ -9,19 +11,35 @@ import json
 import os
 
 
-# original size: 320 x 320
+def points_to_mask(points: torch.Tensor, img_size: tuple) -> torch.Tensor:
+    """
+    Args:
+        points: list of points [x1, y1, x2, y2, ...]
+        img_size: tuple of (width, height)
+
+    Returns:
+        Mask of the points in the image
+
+    thanks https://stackoverflow.com/questions/3654289/scipy-create-2d-polygon-mask
+    """
+    mask = Image.new('L', img_size, 0)
+    ImageDraw.Draw(mask).polygon(points.tolist(), outline=1, fill=1)
+
+    return transforms.functional.pil_to_tensor(mask)
+
+
 class BoardDetectorDataset(Dataset):
-    def __init__(self, json_file, size: int = 320, target: str ='points') -> None:
+    def __init__(self, root, json_file, size: int = 320, target: str ='points') -> None:
         """
 
         Args:
-            json_file:
+            json_file: coco json file with keypoints
             size:
             target: "points" or "mask"
         """
         super().__init__()
         assert(json_file is not None), "json_file not provided for board detector dataset"
-        self.data_folder, _ = os.path.split(json_file)
+        self.data_folder = root
         self.json_file = json_file
         self.data = json.load(open(json_file))
         self.size = size
@@ -31,7 +49,8 @@ class BoardDetectorDataset(Dataset):
         print("Board Detector Dataset initalized!")
 
     def __len__(self):
-        return len(self.data["images"])
+        # 4 coords per image so, total_boxes / 4 is len(images_annotated)
+        return len(self.data["annotations"]) // 4
 
     def __getitem__(self, i):
         img_path = os.path.join(self.data_folder, self.data["images"][i]["file_name"])
@@ -57,24 +76,9 @@ class BoardDetectorDataset(Dataset):
                 points[6] = keypoints[0]
                 points[7] = keypoints[1]
         points = torch.tensor(points, dtype=torch.float) / self.data["images"][i]["width"]
-        mask = self.points_to_mask(points * self.size)
 
-        target = mask if self.target == "mask" else points
+        target = points_to_mask(points * self.size, (self.size, self.size)) if self.target == "mask" else points
 
         return img, target
 
-    def points_to_mask(self, points: torch.Tensor):
-        """
-
-        Args:
-            points: keypoints without normalization b/c they are coords for white spots in the mask
-
-        Returns:
-            Mask of the points in the image
-        """
-        mask = torch.zeros((1, self.size, self.size), dtype=torch.int)
-        points = points.resize(4, 2).to(torch.int)
-        for point in points:
-            mask[0][point[1]][point[0]] = 1
-        return mask
 

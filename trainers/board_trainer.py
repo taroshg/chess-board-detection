@@ -1,4 +1,5 @@
 # installed imports
+from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from tqdm.auto import tqdm
@@ -9,18 +10,23 @@ import torch
 import math
 
 # local imports
-from detectors import BoardDetector
+from models import BoardDetector
 from dataloader import BoardDetectorDataset
+
 
 def train_board_detector(model='densenet',
                          weights_load_path=None, 
                          weights_save_folder=None, 
                          weights_name="weight",
+                         json_file='dataloader/data/board_data/board_dataset_coco.json',
+                         root_folder='dataloader/data/raw',
                          batch_size=64, 
                          learning_rate=3e-4, 
                          epochs=30, 
                          from_pretrained=True,
-                         mixed_precision_training=True, 
+                         mixed_precision_training=True,
+                         writer=None,
+                         step=0,
                          device='cpu'):
 
     """
@@ -39,13 +45,12 @@ def train_board_detector(model='densenet',
         (str) loss_save_path: path where losses plot fig (losses.jpg) will be stored
 
     Returns:
-        None, displays losses at the end
+        last loss and lowest loss
     """
 
     weights_save_path = weights_save_folder + f"/{weights_name}"
-    loss_save_path = weights_save_folder + "/losses.jpg"
 
-    board_detector = BoardDetector(pretrained=from_pretrained, model=model, target='mask').to(device)
+    board_detector = BoardDetector(pretrained=from_pretrained, model=model, target='points').to(device)
     if weights_load_path != None:
         board_detector.load_state_dict(torch.load(weights_load_path)) 
         print('loaded weights for board detector!')
@@ -57,10 +62,12 @@ def train_board_detector(model='densenet',
     else:
         print('no weights will be saved for board detector')
 
+    writer = SummaryWriter(f'{weights_save_folder}/tensorboard') if writer is None else writer
+
     optim = torch.optim.Adam(board_detector.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, patience=5, factor=0.1, verbose=True)
 
-    board_dataset = BoardDetectorDataset(json_file='dataloader/data/board_data/board_dataset_coco.json', target='mask')
+    board_dataset = BoardDetectorDataset(root=root_folder, json_file=json_file, target='points')
     scaler = torch.cuda.amp.GradScaler() if mixed_precision_training else None
 
     dataloader = DataLoader(board_dataset, batch_size=batch_size, shuffle=True)
@@ -87,6 +94,9 @@ def train_board_detector(model='densenet',
                 loss.backward()
                 optim.step()
 
+            writer.add_scalar(f'MSE Loss b:{batch_size}, lr: {learning_rate}', loss, global_step=step)
+            step += 1
+
             losses += [loss.item()]
             if weights_save_folder is not None and loss.item() < lowest_loss:
                 lowest_loss = loss.item()
@@ -94,8 +104,4 @@ def train_board_detector(model='densenet',
 
         scheduler.step(sum(losses) / len(losses))
 
-    print(f"last loss: {losses[-1]}")
-    print(f"lowest loss: {lowest_loss}")
-    plt.plot(losses)
-    plt.savefig(loss_save_path)
-    plt.show()
+    return losses[-1], lowest_loss
