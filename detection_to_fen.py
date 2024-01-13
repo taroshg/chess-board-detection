@@ -52,7 +52,7 @@ def prep_image(image_path, size, device='cpu'):
     return img.unsqueeze(0).to(device)
 
 
-def get_board_detector(weights=None, model='squeezenet', device='cpu'):
+def get_board_detector(weights=None, model='resnet', device='cpu'):
     board_detector = BoardDetector(model=model).to(device)
     if weights is not None:
         board_detector.load_state_dict(torch.load(weights, map_location=device))
@@ -68,12 +68,12 @@ def get_piece_detector(weights=None, device='cpu'):
     return piece_detector
 
 
-def get_predictions(img_path):
-    threshold = 0.5
-    img_size = 320
+def get_predictions(img_path, threshold=0.5, img_size=320,
+                    piece_weight='models/checkpoints/piece_detector/320_faster_rcnn/weight',
+                    board_weight='models/checkpoints/board_detector/squeezenet/weight'):
     img = prep_image(img_path, size=(img_size, img_size), device=device)
-    board_detector = get_board_detector('models/checkpoints/board_detector/squeezenet/weight', device=device)
-    piece_detector = get_piece_detector('models/checkpoints/piece_detector/320_faster_rcnn/synthetic_weight', device=device)
+    board_detector = get_board_detector(board_weight, device=device)
+    piece_detector = get_piece_detector(piece_weight, device=device)
 
     pieces = ['none', 'P', 'N', 'B', 'R', 'Q', 'K',
               'p', 'n', 'b', 'r', 'q', 'k']
@@ -96,7 +96,7 @@ def get_actual(idx, img_size=320, piece_dataset=None, board_dataset=None):
                                          json_file='dataloader/data/board_detector_coco.json',
                                          size=img_size) if board_dataset is None else board_dataset
     piece_dataset = PieceDetectorDataset(root='dataloader/data/raw/',
-                                         json_file='dataloader/data/piece_data/piece_detection_coco_320.json',
+                                         json_file='dataloader/data/piece_detection_coco.json',
                                          size=(img_size, img_size)) if piece_dataset is None else piece_dataset
 
     pieces = ['none', 'P', 'N', 'B', 'R', 'Q', 'K',
@@ -133,7 +133,7 @@ def bboxes_to_points(bboxes : torch.Tensor, offset : float = 2):
 
 def calculateFEN(points, labels, img_size=320):
     chessboard = [[' ' for i in range(8)] for j in range(8)]
-    cell_size = 320 // 8
+    cell_size = img_size // 8
     points = torch.clamp(points.to(int), 1, img_size - 1)  # clamping is done to not have points on the edge
     for i, point in enumerate(points):
         label = labels[i]

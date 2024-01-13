@@ -1,5 +1,6 @@
 # installed imports
 import torchmetrics.detection.mean_ap
+import torch.utils.data as data_utils
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
 import torch
@@ -28,22 +29,31 @@ def main():
     """
     img_size = 320
     MODEL = f'{img_size}_faster_rcnn'
-    json_file = 'dataloader/data/data_generation/images/piece_coco.json'
-    root_folder = 'dataloader/data/data_generation/images'
-    PRETRAINED = True
+    # loads from local dir
+    # json_file = 'dataloader/data/piece_detection_coco.json'
+    # root_folder = 'dataloader/data/raw/'
 
-    epochs = 10
-    batch_size = [8]
+    # loads from d drive
+    root_folder = "d:/Projects/Chess Detection Data/data_generation/backups/old_data/images"
+    json_file = "d:/Projects/Chess Detection Data/data_generation/backups/old_data/images/piece_coco.json"
+
+    # limiting the dataset to promote overfitting
+    LIMIT = 100
+    overfit_dataset = data_utils.Subset(PieceDetectorDataset(root_folder, json_file), list(range(0, LIMIT)))
+    
+    PRETRAINED = True
+    
+    epochs = 250
+    batch_size = [4]
     lr = [1e-4]
     weight_decay = 0.0005
-    writer = SummaryWriter(f'models/checkpoints/piece_detector/{MODEL}/tensorboard_synthetic')
+    writer = SummaryWriter(f'models/checkpoints/piece_detector/{MODEL}/tensorboard_overfit')
     for b in batch_size:
         for l in lr:
-            loss, lowest_loss = train_piece_detector(batch_size=b,  # hyperparameter search (batch_size)
+            loss, lowest_loss, m_ap = train_piece_detector(batch_size=b,  # hyperparameter search (batch_size)
                                                      epochs=epochs,
-                                                     weights_load_path='models/checkpoints/piece_detector/320_faster_rcnn/weight',
-                                                     weights_save_folder='models/checkpoints/piece_detector/320_faster_rcnn/',
-                                                     weights_name='synthetic_weight',
+                                                     load=f'models/checkpoints/piece_detector/{MODEL}/synthetic_overfit',
+                                                     save=f'models/checkpoints/piece_detector/{MODEL}/synthetic_overfit',
                                                      json_file=json_file,
                                                      root_folder=root_folder,
                                                      img_size=(img_size, img_size),
@@ -52,9 +62,10 @@ def main():
                                                      from_pretrained=PRETRAINED,
                                                      mixed_precision_training=torch.cuda.is_available(),
                                                      writer=writer,  # optional summary writer added!
-                                                     step=0,
-                                                     device=device)
-
+                                                     step=2500,
+                                                     device=device,
+                                                     dataset=overfit_dataset)
+    
             # writer.add_hparams({'learning rate': l, 'batch size': b},
             #                    {'lowest loss': lowest_loss, 'last loss': loss, 'mAP': m_ap['map']})
     writer.close()
@@ -63,12 +74,12 @@ def main():
     """
     PIECE DETECTOR VIEW OUTPUT
     """
-    # weights = f'models/checkpoints/piece_detector/{MODEL}/weight'
+    # weights = f'models/checkpoints/piece_detector/{MODEL}/final/synthetic_weight_16_0.0001'
     # piece_detector = PieceDetector(pretrained=PRETRAINED).to(device)
     # piece_detector.load_state_dict(torch.load(weights, map_location=device))
     # piece_detector.eval()
     # piece_data = PieceDetectorDataset(root=root_folder, json_file=json_file, size=(img_size, img_size))
-    #
+    
     # img, _ = piece_data[4]
     # features = piece_detector.detector.backbone(img.unsqueeze(0).to(device))
     # save_location = 'dataloader/data/trained_fpn_output/80x80'
@@ -105,22 +116,23 @@ def main():
     #         idx += 1
     #     except:
     #         quit()
+    # show_piece_detector_results(12, piece_detector, piece_data, device)
 
     """
     BOARD DETECTOR TRAINING SECTION
     """
     # img_size = 320
     # MODEL = 'resnet'
-    # json_file = 'dataloader/data/board_detector_coco.json'
-    # root_folder = 'dataloader/data/raw/'
+    # json_file = 'dataloader/data/data_generation/images/board_coco.json'
+    # root_folder = 'dataloader/data/data_generation/images/'
     # PRETRAINED = True
 
     # epochs = 10
     # batch_size = [16]
     # lr = [1e-4]
-    #
+
     # writer = SummaryWriter(f'models/checkpoints/board_detector/{MODEL}/tensorboard')
-    # step=10
+    # step= 0
     # last_loss = 0
     # lowest_loss = 0
     # for b in batch_size:
@@ -131,8 +143,8 @@ def main():
     #                                                       batch_size=b,
     #                                                       learning_rate=l,
     #                                                       mixed_precision_training=torch.cuda.is_available(),
-    #                                                       weights_load_path=f'models/checkpoints/board_detector/{MODEL}/weight',
-    #                                                       weights_save_folder=f'models/checkpoints/board_detector/{MODEL}',
+    #                                                       load=None,
+    #                                                       save=f'models/checkpoints/board_detector/{MODEL}/weight_{b}_{l}',
     #                                                       json_file=json_file,
     #                                                       root_folder=root_folder,
     #                                                       from_pretrained=PRETRAINED,

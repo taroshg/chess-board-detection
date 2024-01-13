@@ -15,9 +15,8 @@ from dataloader import BoardDetectorDataset
 
 
 def train_board_detector(model='densenet',
-                         weights_load_path=None, 
-                         weights_save_folder=None, 
-                         weights_name="weight",
+                         load=None,
+                         save=None,
                          json_file='dataloader/data/board_data/board_dataset_coco.json',
                          root_folder='dataloader/data/raw',
                          batch_size=64, 
@@ -48,21 +47,12 @@ def train_board_detector(model='densenet',
         last loss and lowest loss
     """
 
-    weights_save_path = weights_save_folder + f"/{weights_name}"
-
     board_detector = BoardDetector(pretrained=from_pretrained, model=model, target='points').to(device)
-    if weights_load_path != None:
-        board_detector.load_state_dict(torch.load(weights_load_path)) 
+    if load != None:
+        board_detector.load_state_dict(torch.load(load))
         print('loaded weights for board detector!')
     else:
         print('no weights are loaded for board detector')
-
-    if weights_save_folder != None:
-        print('weights will be saved at' + weights_save_path + ' for board detector')
-    else:
-        print('no weights will be saved for board detector')
-
-    writer = SummaryWriter(f'{weights_save_folder}/tensorboard') if writer is None else writer
 
     optim = torch.optim.Adam(board_detector.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optim, patience=5, factor=0.1, verbose=True)
@@ -94,13 +84,14 @@ def train_board_detector(model='densenet',
                 loss.backward()
                 optim.step()
 
-            writer.add_scalar(f'MSE Loss b:{batch_size}, lr: {learning_rate}', loss, global_step=step)
-            step += 1
+            if writer is not None:
+                writer.add_scalar(f'MSE Loss b:{batch_size}, lr: {learning_rate}', loss, global_step=step)
+                step += 1
 
             losses += [loss.item()]
-            if weights_save_folder is not None and loss.item() < lowest_loss:
+            if save is not None and loss.item() < lowest_loss:
                 lowest_loss = loss.item()
-                torch.save(board_detector.state_dict(), weights_save_path)
+                torch.save(board_detector.state_dict(), save)
 
         scheduler.step(sum(losses) / len(losses))
 

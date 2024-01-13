@@ -14,7 +14,6 @@ from models import PieceDetector, BoardDetector
 from dataloader import BoardDetectorDataset, PieceDetectorDataset
 from helpers import warp
 
-
 def piece_detector_results(idx: int,
                                 piece_detector: PieceDetector,
                                 piece_data: PieceDetectorDataset,

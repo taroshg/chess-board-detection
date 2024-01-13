@@ -14,7 +14,7 @@ class BoardDetector(nn.Module):
     Simple pretrained CNN with classifer output of (1, 8) 
     for (x, y, x, y, x, y, x, y) keypoints of board corners
     """
-    def __init__(self, pretrained=True, model='squeezenet', target='points'):
+    def __init__(self, pretrained=True, model='resnet', target='points'):
         super().__init__()
         self.target = target
         assert(model == 'densenet' or 
@@ -59,4 +59,4 @@ class BoardDetector(nn.Module):
 
 class BoardMask(nn.Module):
     def __init__(self, pretrained=False):
-        mask = maskrcnn(weights=MaskRCNN_ResNet50_FPN_Weights if pretrained else None, num_classes=1)
+        mask = maskrcnn(weights=None, num_classes=1)

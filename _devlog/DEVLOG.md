@@ -143,9 +143,90 @@ Clearly, the annotations are far more accurate than humans, and
 the variation of the image can be limitless. It really comes down
 to how realistic I can render the scene.
 
+### Training on Large Dataset for Long time (Dec 30, 2023)
+using the blender automation script, I was able generate about 10k images in a few hours with detailed
+labels. I had stored them in a hard drive outside of this project folder because I expect this to get
+bigger in size. Currently the data is about 2GB which is not bad at all. The image size is 600 x 600 because
+I do not expect the model should need more resolution than this. The thought process behind this resolution is that
+if a human can detect the board from a low resolution image, then the model should be able to achive the same result.
+Although the model was trained on even lower resolution of 320 x 320, which is still detectable by me. Enough chat here
+are the results of the model with piece detection:<br>
 
+I am testing from the <a href="https://paperswithcode.com/dataset/chessred">chessred</a> dataset images because my model has not seen them. And these images are without obstructions and have ample lighting which create an
+optimal image for perfect detection. I wanted to see how my model would do if it
+was given a easily detectable image first.
+#### Few pieces
+<img src="images/23dec30/few.png" width="500px"/>
+the mistake here is minial with just one incorrect classification of the black knight (miss took for black rook). Also notice that it detects pieces outside the board.
 
+#### Many pieces
+<img src="images/23dec30/many.png" width="500px"/>
+There are clearly a lot of mistakes. Funny to see that it detects the chair's wheel in the background as black rook.
 
+### Better Synthetic Data Generation (Jan 9, 2024)
+#### Why long time no see
+As much as I wanted to spend time on this project, immense school work put a halt on this project. 
+However, I am back with a much needed update to this project. I have been working on trying to collect
+large amounts of data through the use of synthetic data generation. <br>
 
+#### Making better sythetic data
+The most important part is to create realistic scene as explained in prev dev log. So I saw some youtube
+tutorials and created better floor textures, I created procedural textures using node editing in blender. 
+I made carpet, wood, marble and leather. Further more, I added a new piece set model.<br>
 
+#### Problem with data collection
+The problem I have faced commonly was that the python script used to run the 
+blender automation cannot be inturputed. This is because the current method works by saving
+the annotaions to a json file which is extremely large (~30MB+ for board.json and piece.json for about 10k images). 
+During the blender script the json file is loaded onto memory and all the annotations are added to a varible in python
+this means when inturupted the annotations will not be saved. <br>
 
+#### How I solved the problem
+I wanted to have a way to checkpoint the large data collected to be protected from when the script stops running.
+The solution I found was to use sqlite3 to save to a .db file. This means that I can inturupt the blender script
+without having to lose the entire dataset in memory. <br>
+
+#### Optimization
+Although I found that querying to the database every image made the automation slow. After some thought, I was able to
+solve this issue by creating a temp memory and a SAVE_TIMER variable, which make query to the database after x iterations
+and everything in the temp memory will be dumped into the database. <br>
+
+#### More optimization
+Before I had two json files, one for board annotations and one for piece annotations, since this is a .db file it was easy
+to simply create one database (annotations.db) with the following structure:<br>
+* images
+    * id
+    * file_name
+    * height
+    * width
+
+* piece_annotations
+    * id
+    * image_id
+    * category_id
+    * bbox
+
+* piece_categories
+    * id
+    * supercategory
+    * name
+
+* board_annotations
+    * id
+    * image_id
+    * category_id
+    * keypoints
+    
+* board_categories
+    * id
+    * supercategory
+    * name
+
+This also means that at no time would there be a conflict of images between board and piece detection since they are in the same file.
+
+### Purposefully Overfitting (Jan 9, 2024)
+The reasoning behind overfitting is to ensure that the model is complex enough to capture the trend in the data. Therefore, I have puposefully overfit my model on 100 generated images. Here is the loss:
+
+<img src="images/24jan9/overfit.png" width="500px"/>
+
+it took the model 8,749 steps to have a decent loss. The main issue was to reduce the loss_box_reg (pink) and loss_classifier (blue). These losses take up the entirety of the compute (rtx 3060). I plan to use AWS or other cloud gpu service to speed this up.

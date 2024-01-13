@@ -1,5 +1,4 @@
 # Changelog
-## [1.0.1] - 2023-
 ### Changes
 - resized _devlog images to reduce file sizes
 ### Added

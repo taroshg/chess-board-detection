@@ -15,6 +15,8 @@ import os
 import glob
 
 
+# TODO: add the ability to read .db files
+
 class PieceDetectorDataset(Dataset):
     """
     Args:

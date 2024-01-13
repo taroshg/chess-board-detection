@@ -345,5 +345,7 @@ venv/
 
 # Weights
 models/checkpoints/*
+checkpoints/*
 # Data
 dataloader/data/*
+data/*
