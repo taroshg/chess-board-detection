@@ -11,13 +11,10 @@ import math
 
 # local imports
 from models import PieceDetector
-from dataloader import PieceDetectorDataset
 from helpers import piece_detector_results
 
 
 def train_piece_detector(load=None, save=None,
-                         json_file='dataloader/data/piece_data/piece_detection_coco.json',
-                         root_folder='dataloader/data/raw',
                          dataset=None,
                          img_size=(320, 320),
                          batch_size=2,
@@ -66,7 +63,6 @@ def train_piece_detector(load=None, save=None,
 
     optim = torch.optim.SGD(piece_detector.parameters(), lr=learning_rate, momentum=0.9, nesterov=True,
                             weight_decay=weight_decay)
-    dataset = PieceDetectorDataset(root=root_folder, json_file=json_file, size=img_size) if dataset is None else dataset
     scaler = torch.cuda.amp.GradScaler() if mixed_precision_training else None
 
     # the collate_fn function is needed to create batches without using default stack method,

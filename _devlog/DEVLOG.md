@@ -230,3 +230,83 @@ The reasoning behind overfitting is to ensure that the model is complex enough t
 <img src="images/24jan9/overfit.png" width="500px"/>
 
 it took the model 8,749 steps to have a decent loss. The main issue was to reduce the loss_box_reg (pink) and loss_classifier (blue). These losses take up the entirety of the compute (rtx 3060). I plan to use AWS or other cloud gpu service to speed this up.
+
+### Improving Data Processing (Feb 4, 2024)
+
+#### Why is there a need for me to improve my data processing code?<br>
+I had implemented .db files to store blender automated data. [click for back story](#how-i-solved-the-problem). This means that I cannot use .json files with loading data for my model. I need to create a way to read .db files for the blender data.
+
+#### My first solution for reading .db files
+```python
+f"SELECT * from annotions Where image_id={idx}"
+```
+ this query would be called everytime the _getitem_ was called from the dataset. I came to find out that this solution was not effecient because calling mutiple queries.
+
+ #### Second solution for reading db files
+ ```python
+db_cur.row_factory = lambda cursor, row: (row[1], row[2], json.loads(row[3]))
+annotations = db_cur.execute("SELECT * FROM piece_annotations").fetchall()
+```
+I would call this code during initalization of the _Dataset_. This would load all the annotations to memory which is faster for retrival. <br>
+
+This would mean that I would need to manually filter annotations by image_id
+at every _getitem_ call.
+
+```python
+out = []
+start = time.time()
+for i in range(1000):
+    out += [ann for ann in annotations if ann[0] == i]
+print(time.time() - start)
+# ann[o] is image_id
+```
+```
+output: 10.561228275299072 seconds
+```
+this is loads at about 1 second per image. which is fast but much slower than using .json files.
+
+#### Optimized solution for reading db files
+Thanks to Bing Chat, I found that python has bisect library that can use binary search on sorted arrays to filter the annotations.
+
+```python
+def filter_annotations(self, image_id):
+    # Find the index of the first occurrence of target_id
+    start_index = bisect.bisect_left(self.anns, (image_id,))
+
+    rel_anns = []
+
+    # Iterate from the start_index while the id is equal to target_id
+    for i in range(start_index, len(self.anns)):
+        if self.anns[i][0] == image_id:
+            rel_anns.append(self.anns[i])
+        else:
+            break
+
+    return rel_anns
+```
+
+Testing time effeciency:
+```python
+# using dataset that loads from .json file
+start = time.time()
+json_loaded_data = []
+for i in range(100):
+    json_loaded_data.append(json_dataset.__getitem__(i))
+print(time.time() - start)
+```
+```
+output: 1.9548046588897705 seconds
+```
+
+```python
+# using dataset that loads from .db file
+start = time.time()
+db_loaded_data = []
+for i in range(100):
+    db_loaded_data.append(db_dataset.__getitem__(i))
+print(time.time() - start)
+```
+```
+output: 1.8987274169921875 seconds
+```
+And thats an improvement!

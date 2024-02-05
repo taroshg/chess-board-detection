@@ -9,7 +9,7 @@ import torch
 from datetime import datetime as time
 
 # local imports
-from dataloader import BoardDetectorDataset, PieceDetectorDataset, PieceDetectorCOGDataset
+from dataloader import BoardDetectorDataset, PieceDetectorDataset, PieceDetectorCOGDataset, PieceDetectorDatasetDB
 from models import BoardDetector, PieceDetector
 from trainers import train_board_detector, train_piece_detector
 from helpers import *
@@ -34,41 +34,41 @@ def main():
     # root_folder = 'dataloader/data/raw/'
 
     # loads from d drive
-    root_folder = "d:/Projects/Chess Detection Data/data_generation/backups/old_data/images"
-    json_file = "d:/Projects/Chess Detection Data/data_generation/backups/old_data/images/piece_coco.json"
+    root_folder = "d:/Projects/Chess Detection Data/data_generation/data/images"
+    ann_file = "d:/Projects/Chess Detection Data/data_generation/data/annotations.db"
 
     # limiting the dataset to promote overfitting
-    LIMIT = 100
-    overfit_dataset = data_utils.Subset(PieceDetectorDataset(root_folder, json_file), list(range(0, LIMIT)))
+    # LIMIT = 100
+    # overfit_dataset = data_utils.Subset(PieceDetectorDatasetDB(root_folder, ann_file), list(range(0, LIMIT)))
     
+    dataset = PieceDetectorDatasetDB(root_folder, ann_file)
+
     PRETRAINED = True
     
-    epochs = 250
+    epochs = 2
     batch_size = [4]
     lr = [1e-4]
     weight_decay = 0.0005
-    writer = SummaryWriter(f'models/checkpoints/piece_detector/{MODEL}/tensorboard_overfit')
+    # writer = SummaryWriter(f'models/checkpoints/piece_detector/{MODEL}/tensorboard_overfit')
     for b in batch_size:
         for l in lr:
             loss, lowest_loss, m_ap = train_piece_detector(batch_size=b,  # hyperparameter search (batch_size)
                                                      epochs=epochs,
-                                                     load=f'models/checkpoints/piece_detector/{MODEL}/synthetic_overfit',
-                                                     save=f'models/checkpoints/piece_detector/{MODEL}/synthetic_overfit',
-                                                     json_file=json_file,
-                                                     root_folder=root_folder,
+                                                    #  load=f'models/checkpoints/piece_detector/{MODEL}/synthetic_overfit',
+                                                    #  save=f'models/checkpoints/piece_detector/{MODEL}/synthetic_overfit',
                                                      img_size=(img_size, img_size),
                                                      learning_rate=l,  # hyperparameter search (learning_rate)
                                                      weight_decay=weight_decay,
                                                      from_pretrained=PRETRAINED,
                                                      mixed_precision_training=torch.cuda.is_available(),
-                                                     writer=writer,  # optional summary writer added!
+                                                    #  writer=writer,  # optional summary writer added!
                                                      step=2500,
                                                      device=device,
-                                                     dataset=overfit_dataset)
+                                                     dataset=dataset)
     
             # writer.add_hparams({'learning rate': l, 'batch size': b},
             #                    {'lowest loss': lowest_loss, 'last loss': loss, 'mAP': m_ap['map']})
-    writer.close()
+    # writer.close()
     print('Training Complete!')
 
     """

@@ -13,9 +13,77 @@ from typing import Any, List
 import json
 import os
 import glob
+import sqlite3
+import bisect
 
+class PieceDetectorDatasetDB(Dataset):
+    """
+    reads .db files
+    Args:
+        (str) root: directory with all the images
+        (str) db_file: sql database (.db) file location
+        (tuple) size: resize shape of the images
+    """
+    def __init__(self, root, db_file, size=(320, 320)):
+        super().__init__()
+        assert(db_file is not None), "db_file not provided for piece detector dataset"
+        self.root = root
+        self.w = size[0]
+        self.h = size[1]
+        self.tr = transforms.Compose([transforms.Resize(size), transforms.ToTensor()])
 
-# TODO: add the ability to read .db files
+        db_conn = sqlite3.connect(db_file)
+        db_cur = db_conn.cursor()
+        db_cur.row_factory = lambda cursor, row: (row[1], row[2], json.loads(row[3]))
+        self.anns = db_cur.execute("SELECT * FROM piece_annotations").fetchall()
+        db_cur.row_factory = None
+        self.imgs_data = db_cur.execute("SELECT * FROM images").fetchall()
+        db_conn.close()
+        
+        print("Piece Detector Dataset initialized!")
+
+    def __len__(self):
+        return len(self.imgs_data)
+    
+    def filter_annotations(self, image_id):
+        # Find the index of the first occurrence of target_id
+        start_index = bisect.bisect_left(self.anns, (image_id,))
+
+        rel_anns = []
+
+        # Iterate from the start_index while the id is equal to target_id
+        for i in range(start_index, len(self.anns)):
+            if self.anns[i][0] == image_id:
+                rel_anns.append(self.anns[i])
+            else:
+                break
+
+        return rel_anns
+
+    def __getitem__(self, index: int):
+
+        rel_anns = self.filter_annotations(index)
+        rel_img = self.imgs_data[index - 1]
+        img = self.tr(Image.open(os.path.join(self.root, rel_img[1])).convert("RGB"))
+
+        if len(rel_anns) == 0:
+            return img, {'boxes': torch.tensor([[[],[],[],[]]], dtype=torch.float), 'labels': torch.tensor([], dtype=torch.int64)}
+        
+        boxes = []
+        labels = []
+
+        for ann in rel_anns:
+            boxes.append(ann[-1])
+            labels.append(ann[-2])
+        boxes = torch.tensor(boxes, dtype=torch.float)
+        labels = torch.tensor(labels, dtype=torch.int64)
+        boxes[:, 0::2] *= (320 / rel_img[-1])
+        boxes[:, 1::2] *= (320 / rel_img[-2])
+        boxes = box_convert(boxes, 'xywh', 'xyxy')
+
+        target = {'boxes': boxes, 'labels': labels}
+
+        return img, target
 
 class PieceDetectorDataset(Dataset):
     """
